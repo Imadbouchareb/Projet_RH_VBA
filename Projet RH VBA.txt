@@ -1,0 +1,231 @@
+Function ExtraireChiffres(chaine As String) As String
+    Dim i As Integer
+    Dim resultat As String
+    
+    resultat = ""
+    For i = 1 To Len(chaine)
+        If Mid(chaine, i, 1) Like "[0-9]" Then
+            resultat = resultat & Mid(chaine, i, 1)
+        End If
+    Next i
+    
+    ' Si aucun chiffre n'est trouvé, retourner la chaîne originale
+    If resultat = "" Then
+        resultat = chaine
+    End If
+    
+    If resultat = "" Then
+        resultat = "0"
+    End If
+    
+    ExtraireChiffres = resultat
+End Function
+
+
+
+---------------------------------------------------------------------------------------
+
+Function TrouverHeureMax(rangeHeures As Range) As Date
+    Dim cell As Range
+    Dim maxHeure As Date
+    
+    maxHeure = rangeHeures.Cells(1, 1).Value ' Initialise avec la première heure
+    
+    For Each cell In rangeHeures
+        If cell.Value > maxHeure Then
+            maxHeure = cell.Value
+        End If
+    Next cell
+    
+    TrouverHeureMax = maxHeure
+End Function
+
+--------------------------------------------------------------------------------------------
+
+Function CalculerValeur(celluleDate As Range, celluleDiminution As Range) As Double
+    ' Convertir la date en nombre d'heures
+    Dim heures As Double
+    heures = celluleDate.Value * 24
+    
+    ' Initialiser resultatIntermediaire avec la valeur de heures
+    Dim resultatIntermediaire As Double
+    resultatIntermediaire = heures
+    
+    ' Si celluleDiminution.Value est numérique, l'ajouter à resultatIntermediaire
+    If IsNumeric(celluleDiminution.Value) Then
+        resultatIntermediaire = resultatIntermediaire + celluleDiminution.Value
+    End If
+    
+    ' Diviser le résultat intermédiaire par 24
+    Dim resultatFinal As Double
+    resultatFinal = resultatIntermediaire / 24
+    
+    ' Retourner le résultat final
+    CalculerValeur = resultatFinal
+End Function
+
+--------------------------------------------------------------------------------------------
+
+Sub JointureEtCopie()
+    Dim ws1 As Worksheet, ws2 As Worksheet
+    Dim rng1 As Range, rng2 As Range
+    Dim cell As Range, trouve As Range
+    Dim derniereLigne1 As Long, derniereLigne2 As Long
+    Dim iColNomPrenom As Integer, iColFonction As Integer, iColDepartement As Integer
+    Dim iColCodeEmploye1 As Integer, iColCodeEmploye2 As Integer
+
+    ' Configuration des feuilles
+    Set ws1 = ThisWorkbook.Sheets("Feuille1")
+    Set ws2 = ThisWorkbook.Sheets("Feuille2")
+
+    ' Déterminer les dernières lignes des deux feuilles
+    derniereLigne1 = ws1.Cells(ws1.Rows.Count, "A").End(xlUp).Row
+    derniereLigne2 = ws2.Cells(ws2.Rows.Count, "A").End(xlUp).Row
+
+    ' Configurer les indices de colonnes ici selon la structure de votre feuille
+    iColCodeEmploye1 = 1 ' Mettez l'indice de la colonne Code Employé dans Feuille1
+    iColNomPrenom = 2    ' Mettez l'indice de la colonne Nom Prénom dans Feuille1
+    iColFonction = 3     ' Mettez l'indice de la colonne Fonction dans Feuille1
+    iColDepartement = 4  ' Mettez l'indice de la colonne Département dans Feuille1
+    iColCodeEmploye2 = 1 ' Mettez l'indice de la colonne Code Employé dans Feuille2
+
+    ' Boucle à travers chaque cellule dans la colonne Code Employé de la Feuille1
+    For Each cell In ws1.Range(ws1.Cells(2, iColCodeEmploye1), ws1.Cells(derniereLigne1, iColCodeEmploye1))
+        ' Rechercher le Code Employé correspondant dans la Feuille2
+        Set trouve = ws2.Range(ws2.Cells(2, iColCodeEmploye2), ws2.Cells(derniereLigne2, iColCodeEmploye2)).Find(What:=cell.Value, LookIn:=xlValues, LookAt:=xlWhole)
+
+        ' Si trouvé, copier les données
+        If Not trouve Is Nothing Then
+            ' Copier Nom Prénom, Fonction, Département de Feuille1 à Feuille2
+            trouve.Offset(0, ws2.Columns.Count).End(xlToLeft).Offset(0, 1).Value = cell.Offset(0, iColNomPrenom - iColCodeEmploye1).Value
+            trouve.Offset(0, ws2.Columns.Count).End(xlToLeft).Offset(0, 1).Value = cell.Offset(0, iColFonction - iColCodeEmploye1).Value
+            trouve.Offset(0, ws2.Columns.Count).End(xlToLeft).Offset(0, 1).Value = cell.Offset(0, iColDepartement - iColCodeEmploye1).Value
+        End If
+    Next cell
+
+    MsgBox "Jointure et copie terminées."
+End Sub
+
+------------------------------------------------------------------------------------------------
+
+Sub CreerFeuilleEtCalculer()
+    Dim wsSource As Worksheet, wsDest As Worksheet
+    Dim derniereLigne As Long, i As Long, j As Long
+    Dim entreeMax As Date, sortieMax As Date, heureDebut As Date, heureFin As Date
+    Dim retard As Double, heureSup As Double, diff As Double
+    Dim entreesSorties(10) As Date ' Pour stocker les heures d'entrée/sortie
+    
+    ' Adaptation nécessaire : Remplacez "FeuilleSource" par le nom réel de votre feuille de données
+    Set wsSource = ThisWorkbook.Sheets("RETARDS")
+    
+    ' Création d'une nouvelle feuille pour les résultats
+    On Error Resume Next ' Ignore l'erreur si la feuille existe déjà
+    Set wsDest = ThisWorkbook.Sheets("Résultats")
+    If wsDest Is Nothing Then
+        Set wsDest = ThisWorkbook.Sheets.Add(After:=ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count))
+        wsDest.Name = "Résultats"
+    End If
+    On Error GoTo 0 ' Retour au comportement normal des erreurs
+    
+    ' Initialisation de la feuille de destination
+    With wsDest
+        .Cells.Clear ' Nettoyer la feuille avant utilisation
+        .Cells(1, 1).Value = "N° Employé"
+        .Cells(1, 2).Value = "Date"
+        .Cells(1, 3).Value = "Heure début"
+        .Cells(1, 4).Value = "Heure sortie"
+        .Cells(1, 5).Value = "Retard"
+        .Cells(1, 6).Value = "Heure sup"
+        .Cells(1, 7).Value = "Différence"
+    End With
+    
+    
+    For i = 2 To derniereLigne
+        ' Supposons que la colonne N est la 14ème colonne
+        Dim valeurOriginale As String
+        Dim valeurModifiee As String
+    
+        valeurOriginale = wsSource.Cells(i, 14).Value
+        valeurModifiee = ExtraireChiffres(valeurOriginale)
+    
+        ' Faire quelque chose avec valeurModifiee, par exemple, écrire dans une autre colonne ou la même
+        wsSource.Cells(i, 14).Value = valeurModifiee
+    Next i
+
+    
+    
+    ' Calcul pour chaque ligne dans la feuille source
+    derniereLigne = wsSource.Cells(wsSource.Rows.Count, 1).End(xlUp).Row
+    For i = 2 To derniereLigne
+        
+        sortieMax = wsSource.Cells(i, 3).Value
+        
+        ' Exemple de calculs, à adapter selon les colonnes réelles de votre feuille
+        ' Chargement des heures d'entrée/sortie
+        For j = 1 To 10
+            entreesSorties(j) = wsSource.Cells(i, j + 2).Value ' Ajuster l'index pour correspondre aux colonnes d'heure
+            If wsSource.Cells(i, j + 2).Value > maxSortie Then
+                sortieMax = wsSource.Cells(i, j + 2).Value
+            End If
+        Next j
+        
+        ' Trouver l'heure de début et de sortie maximale
+        heureDebut = entreesSorties(1) ' Exemple simplifié
+        
+        ' Calculs de retard et heure sup (simplifiés ici, à ajuster selon les besoins)
+        retard = IIf(heureDebut > TimeValue("08:45:00"), (heureDebut - TimeValue("08:45:00")) * 24, 0)
+        retard = retard + IIf(sortieMax > TimeValue("16:30:00"), 0, (TimeValue("16:30:00") - sortieMax) * 24)
+        heureSup = IIf(sortieMax > TimeValue("16:30:00"), (sortieMax - TimeValue("16:30:00")) * 24, 0)
+        diff = heureSup - retard
+        
+        ' Écrire les résultats dans la feuille de destination
+        With wsDest
+            .Cells(i, 1).Value = wsSource.Cells(i, 1).Value ' N° Employé
+            .Cells(i, 2).Value = wsSource.Cells(i, 2).Value ' Date
+            .Cells(i, 3).Value = heureDebut ' Heure début
+            .Cells(i, 4).Value = sortieMax ' Heure sortie
+            .Cells(i, 5).Value = retard ' Retard
+            .Cells(i, 6).Value = heureSup ' Heure sup
+            .Cells(i, 7).Value = diff ' Différence
+        End With
+    Next i
+    
+    MsgBox "Les données ont été traitées et transférées dans la feuille 'Résultats'."
+End Sub
+
+
+
+--------------------------------------------------------------------------------
+Sub VerifierHeures()
+    Dim ws As Worksheet
+    Set ws = ActiveSheet ' Ou spécifiez le nom de votre feuille, par exemple: Set ws = ThisWorkbook.Sheets("NomDeLaFeuille")
+    
+    Dim derniereLigne As Long
+    derniereLigne = ws.Cells(ws.Rows.Count, "A").End(xlUp).Row ' Ajustez la colonne si nécessaire
+    
+    ' Trouver la dernière colonne avec des données dans la ligne courante
+    derniereColonne = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
+    ws.Cells(1, derniereColonne).Value = "signaler"
+    
+    
+    Dim i As Long
+    For i = 2 To derniereLigne ' Commencez à la ligne 2, en supposant que la ligne 1 contient les en-têtes
+        
+        Dim heureDebut As Date, heureSortie As Date
+        heureDebut = ws.Cells(i, 3).Value ' Ajustez le numéro de colonne selon l'emplacement de l'heure de début
+        heureSortie = ws.Cells(i, 13).Value ' Ajustez le numéro de colonne selon l'emplacement de l'heure de sortie
+        
+        Dim message As String
+        If heureDebut > TimeValue("12:00:00") Then
+            message = "Arrivé tard"
+        ElseIf heureSortie < TimeValue("14:00:00") Then
+            message = "Sortie avant l'heure"
+        Else
+            message = "" ' Pas de message si aucune condition n'est remplie
+        End If
+        
+        
+        ' Écrire le message dans la colonne suivante
+        ws.Cells(i, derniereColonne + 1).Value = message
+    Next i
+End Sub
